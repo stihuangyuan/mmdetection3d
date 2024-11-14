@@ -30,6 +30,14 @@ def parse_args():
         action='store_true',
         help='show online visualization results')
     parser.add_argument(
+        '--save-pred',
+        action='store_true',
+        help='save model inference')
+    parser.add_argument(
+        '--load-pred',
+        action='store_true',
+        help='load model inference')
+    parser.add_argument(
         '--snapshot',
         action='store_true',
         help='whether to save online visualization results')
@@ -38,17 +46,57 @@ def parse_args():
 
 
 def main(args):
-    # build the model from a config file and a checkpoint file
-    model = init_model(args.config, args.checkpoint, device=args.device)
+    if args.load_pred:
+        cfg_visualizer = {'type': 'Det3DLocalVisualizer', 'vis_backends': [{'type': 'LocalVisBackend'}], 'name': 'visualizer'}
+        dataset_meta = {'classes': ['car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'], 
+                        'version': 'v1.0-trainval', 
+                        'CLASSES': ('car', 'truck', 'trailer', 'bus', 'construction_vehicle', 'bicycle', 'motorcycle', 'pedestrian', 'traffic_cone', 'barrier'), 
+                        'DATASET': 'Nuscenes', 
+                        'palette': [(255, 158, 0), (255, 99, 71), (255, 140, 0), (255, 127, 80), (233, 150, 70), (220, 20, 60), (255, 61, 99), (0, 0, 250), (47, 79, 79), (112, 128, 144)]}
+        visualizer = VISUALIZERS.build(cfg_visualizer)
+        visualizer.dataset_meta = dataset_meta
+        
+        import pickle
+        with open('test.pkl', 'rb') as f:
+            data = pickle.load(f)
+            result, points = data['result'], data['points']
 
-    # init visualizer
-    visualizer = VISUALIZERS.build(model.cfg.visualizer)
-    visualizer.dataset_meta = model.dataset_meta
+        import torch
+        from mmdet3d.structures import LiDARInstance3DBoxes
+        result.pred_instances_3d.scores_3d = torch.from_numpy(result.pred_instances_3d.scores_3d)
+        result.pred_instances_3d.bboxes_3d = LiDARInstance3DBoxes(result.pred_instances_3d.bboxes_3d, box_dim=9)
+        result.pred_instances_3d.labels_3d = torch.from_numpy(result.pred_instances_3d.labels_3d)
+    
+    else:
+        # build the model from a config file and a checkpoint file
+        model = init_model(args.config, args.checkpoint, device=args.device)
 
-    # test a single image and point cloud sample
-    result, data = inference_multi_modality_detector(model, args.pcd, args.img,
-                                                     args.ann, args.cam_type)
-    points = data['inputs']['points']
+        # init visualizer
+        visualizer = VISUALIZERS.build(model.cfg.visualizer)
+        visualizer.dataset_meta = model.dataset_meta
+
+        # test a single image and point cloud sample
+        import time
+        t1 = time.time()
+        result, data = inference_multi_modality_detector(model, args.pcd, args.img,
+                                                        args.ann, args.cam_type)
+        t2 = time.time()
+        print('infer time cost: ', t2 -t1)
+
+        points = data['inputs']['points']
+
+    if args.save_pred:
+        # convert tensor to nmpy to save
+        points_np = data['inputs']['points'].cpu().numpy()
+        import copy
+        result_np = copy.deepcopy(result)
+        result_np.pred_instances_3d.scores_3d = result_np.pred_instances_3d.scores_3d.cpu().numpy()
+        result_np.pred_instances_3d.bboxes_3d = result_np.pred_instances_3d.bboxes_3d.cpu().numpy()
+        result_np.pred_instances_3d.labels_3d = result_np.pred_instances_3d.labels_3d.cpu().numpy()
+        import pickle
+        with open('test.pkl', 'wb') as f:
+            pickle.dump({'result': result_np, 'points': points_np}, f)
+
     if isinstance(result.img_path, list):
         img = []
         for img_path in result.img_path:

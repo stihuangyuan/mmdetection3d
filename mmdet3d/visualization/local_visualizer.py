@@ -177,7 +177,8 @@ class Det3DLocalVisualizer(DetLocalVisualizer):
         o3d_vis.register_key_action_callback(glfw_key_space,
                                              self.space_action_callback)
         o3d_vis.register_key_callback(glfw_key_right, self.right_callback)
-        if os.environ.get('DISPLAY', None) is not None and show:
+        # if os.environ.get('DISPLAY', None) is not None and show:
+        if True:
             o3d_vis.create_window()
             self.view_control = o3d_vis.get_view_control()
         return o3d_vis
