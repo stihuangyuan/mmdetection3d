@@ -714,11 +714,23 @@ class Det3DLocalVisualizer(DetLocalVisualizer):
                             instances, 'centers_2d'):
                         centers_2d = instances.centers_2d
                         self.draw_points(centers_2d)
-                    composed_img[(i // img_col) *
-                                 img_size[0]:(i // img_col + 1) * img_size[0],
-                                 (i % img_col) *
-                                 img_size[1]:(i % img_col + 1) *
-                                 img_size[1]] = self.get_image()
+                    # composed_img[(i // img_col) *
+                    #              img_size[0]:(i // img_col + 1) * img_size[0],
+                    #              (i % img_col) *
+                    #              img_size[1]:(i % img_col + 1) *
+                    #              img_size[1]] = self.get_image()
+                    if i == 0:      # front
+                        composed_img[0*img_size[0]:1*img_size[0], img_size[1]:2*img_size[1]] = self.get_image()
+                    elif i == 1:    # front-right
+                        composed_img[0*img_size[0]:1*img_size[0], 2*img_size[1]:3*img_size[1]] = self.get_image()
+                    elif i == 2:    # front-left
+                        composed_img[0*img_size[0]:1*img_size[0], 0*img_size[1]:1*img_size[1]] = self.get_image()
+                    elif i == 3:    # back
+                        composed_img[img_size[0]:2*img_size[0], 1*img_size[1]:2*img_size[1]] = self.get_image()
+                    elif i == 4:    # back-left
+                        composed_img[img_size[0]:2*img_size[0], 0*img_size[1]:1*img_size[1]] = self.get_image()
+                    elif i == 5:    # back-right
+                        composed_img[img_size[0]:2*img_size[0], 2*img_size[1]:3*img_size[1]] = self.get_image()
                 data_3d['img'] = composed_img
             else:
                 # show single-view image
@@ -1099,3 +1111,10 @@ class Det3DLocalVisualizer(DetLocalVisualizer):
                              out_file[:-4] + '_2d' + out_file[-4:])
         else:
             self.add_image(name, drawn_img_3d, step)
+            
+        if drawn_img_3d is not None:
+            return drawn_img_3d[..., ::-1]
+        else:
+            img_row, img_col = data_input['img'][0].shape[:2]
+            composed_img = np.zeros((2 * img_row, 3 * img_col, 3), dtype=np.uint8)
+            return composed_img
